@@ -98,6 +98,33 @@ const getExif = (photo: PhotoItem, settings: FrameSettings): ExifDisplay => ({
   date: settings.exif.dateOverride || photo.exif.date
 });
 
+const normalizeCameraName = (camera: string) =>
+  camera
+    .replace(/^NIKON CORPORATION\s+NIKON/i, "Nikon")
+    .replace(/^NIKON CORPORATION/i, "Nikon")
+    .replace(/^NIKON/i, "Nikon")
+    .replace(/^SONY\s+SONY/i, "Sony")
+    .replace(/^SONY/i, "Sony")
+    .replace(/^Canon\s+Canon/i, "Canon")
+    .replace(/_2\b/g, " II")
+    .trim();
+
+const fitText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number) => {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  const ellipsis = "…";
+  let low = 0;
+  let high = text.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (ctx.measureText(`${text.slice(0, mid)}${ellipsis}`).width <= maxWidth) {
+      low = mid;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return `${text.slice(0, Math.max(0, low)).trimEnd()}${ellipsis}`;
+};
+
 const drawDefaultLogo = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, color: string) => {
   const mark = width * 0.26;
   const radius = mark * 0.24;
@@ -123,11 +150,11 @@ const drawDefaultLogo = (ctx: CanvasRenderingContext2D, x: number, y: number, wi
 
   ctx.fillStyle = color;
   ctx.textBaseline = "top";
-  ctx.font = `700 ${Math.max(18, width * 0.12)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
-  ctx.fillText("PHOTOFRAME", x + mark + width * 0.07, y + width * 0.03);
-  ctx.font = `600 ${Math.max(13, width * 0.075)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+  ctx.font = `700 ${Math.max(11, width * 0.092)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+  ctx.fillText("PHOTOFRAME", x + mark + width * 0.055, y + width * 0.04);
+  ctx.font = `600 ${Math.max(8, width * 0.064)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
   ctx.fillStyle = color === "#111827" ? "#1677FF" : "#A9C7FF";
-  ctx.fillText("PRO", x + mark + width * 0.07, y + width * 0.17);
+  ctx.fillText("PRO", x + mark + width * 0.055, y + width * 0.165);
 };
 
 const drawLogo = async (
@@ -192,30 +219,39 @@ const drawExif = (
   if (!settings.exif.enabled) return;
 
   const exif = getExif(photo, settings);
-  const titleSize = Math.max(22, infoRect.w * 0.042);
-  const bodySize = Math.max(16, infoRect.w * 0.024);
-  const smallSize = Math.max(14, infoRect.w * 0.021);
+  const titleSize = Math.max(20, Math.min(34, infoRect.w * 0.032));
+  const bodySize = Math.max(14, Math.min(21, infoRect.w * 0.02));
+  const smallSize = Math.max(12, Math.min(17, infoRect.w * 0.016));
   const paddingX = Math.max(24, infoRect.w * 0.034);
   const paddingY = Math.max(18, infoRect.h * 0.2);
+  const gutter = Math.max(18, infoRect.w * 0.024);
+  const logoReserve =
+    settings.logo.enabled && settings.logo.position === "bottom-right"
+      ? Math.max(118, (infoRect.w * settings.logo.size) / 720)
+      : 0;
+  const dividerX = infoRect.x + infoRect.w - paddingX - logoReserve - gutter;
+  const rightBlockX = Math.max(infoRect.x + infoRect.w * 0.48, dividerX - infoRect.w * 0.25);
+  const leftMax = Math.max(120, rightBlockX - (infoRect.x + paddingX) - gutter);
+  const rightMax = Math.max(96, dividerX - rightBlockX - gutter);
 
   ctx.fillStyle = textColor;
   ctx.textBaseline = "top";
+  ctx.textAlign = "left";
   ctx.font = `700 ${titleSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
-  ctx.fillText(exif.camera, infoRect.x + paddingX, infoRect.y + paddingY);
+  ctx.fillText(fitText(ctx, normalizeCameraName(exif.camera), leftMax), infoRect.x + paddingX, infoRect.y + paddingY);
 
   ctx.font = `400 ${bodySize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
-  ctx.fillText(exif.lens, infoRect.x + paddingX, infoRect.y + paddingY + titleSize + 12);
+  ctx.fillText(fitText(ctx, exif.lens, leftMax), infoRect.x + paddingX, infoRect.y + paddingY + titleSize + 12);
 
-  const rightBlockX = infoRect.x + infoRect.w * 0.47;
   ctx.font = `500 ${smallSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
-  ctx.fillText(exif.exposure, rightBlockX, infoRect.y + paddingY + 4);
-  ctx.fillText(exif.date, rightBlockX, infoRect.y + paddingY + smallSize + 20);
+  ctx.fillText(fitText(ctx, exif.exposure, rightMax), rightBlockX, infoRect.y + paddingY + 4);
+  ctx.fillText(fitText(ctx, exif.date, rightMax), rightBlockX, infoRect.y + paddingY + smallSize + 20);
 
   ctx.strokeStyle = settings.exif.dividerColor;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(infoRect.x + infoRect.w * 0.79, infoRect.y + infoRect.h * 0.25);
-  ctx.lineTo(infoRect.x + infoRect.w * 0.79, infoRect.y + infoRect.h * 0.75);
+  ctx.moveTo(dividerX, infoRect.y + infoRect.h * 0.25);
+  ctx.lineTo(dividerX, infoRect.y + infoRect.h * 0.75);
   ctx.stroke();
 };
 
@@ -238,9 +274,11 @@ export const renderPhotoToCanvas = async (photo: PhotoItem, settings: FrameSetti
   const maxImageW = width - margin * 2 - borderWidth * 2;
   const maxImageH = height - margin * 2 - borderWidth * 2 - infoHeight;
   const fit = contain(image.naturalWidth, image.naturalHeight, maxImageW, maxImageH);
+  const baseImageY = (height - fit.h - infoHeight) / 2;
+  const portraitOutputBias = height > width ? height * 0.055 : 0;
   const imageRect = {
     x: Math.round((width - fit.w) / 2),
-    y: Math.round((height - fit.h - infoHeight) / 2),
+    y: Math.round(Math.max(margin + borderWidth, baseImageY - portraitOutputBias)),
     w: Math.round(fit.w),
     h: Math.round(fit.h)
   };

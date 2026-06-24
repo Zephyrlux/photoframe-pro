@@ -63,6 +63,30 @@ const formatExposure = (seconds?: number) => {
   return `1/${Math.round(1 / seconds)}s`;
 };
 
+const cleanExifText = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
+
+const normalizeMake = (value: unknown) => {
+  const make = cleanExifText(value);
+  if (/^NIKON CORPORATION$/i.test(make)) return "Nikon";
+  if (/^SONY$/i.test(make)) return "Sony";
+  if (/^CANON$/i.test(make)) return "Canon";
+  return make.replace(/\bCORPORATION\b/gi, "").trim() || make;
+};
+
+const normalizeModel = (value: unknown) =>
+  cleanExifText(value)
+    .replace(/^NIKON/i, "Nikon")
+    .replace(/^SONY/i, "Sony")
+    .replace(/^CANON/i, "Canon")
+    .replace(/_2\b/g, " II");
+
+const formatCamera = (makeValue: unknown, modelValue: unknown) => {
+  const make = normalizeMake(makeValue);
+  const model = normalizeModel(modelValue);
+  if (make && model.toLowerCase().startsWith(make.toLowerCase())) return model;
+  return [make, model].filter(Boolean).join(" ").trim();
+};
+
 const parseExif = async (arrayBuffer: ArrayBuffer): Promise<ExifDisplay> => {
   try {
     const meta = await exifr.parse(arrayBuffer, {
@@ -77,7 +101,7 @@ const parseExif = async (arrayBuffer: ArrayBuffer): Promise<ExifDisplay> => {
 
     if (!meta) return fallbackExif;
 
-    const camera = [meta.Make, meta.Model].filter(Boolean).join(" ").trim() || fallbackExif.camera;
+    const camera = formatCamera(meta.Make, meta.Model) || fallbackExif.camera;
     const lens = meta.LensModel || meta.Lens || fallbackExif.lens;
     const focal = meta.FocalLength ? `${Math.round(Number(meta.FocalLength))}mm` : "";
     const aperture = meta.FNumber ? `f/${Number(meta.FNumber).toFixed(1).replace(".0", "")}` : "";

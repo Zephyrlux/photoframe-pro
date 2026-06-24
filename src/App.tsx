@@ -15,7 +15,7 @@ import {
   Upload,
   ZoomIn
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import logoMark from "../photoframe_pro_design_pack/assets/logo_mark.svg";
 import { ratios } from "./config";
 import { allTemplates, useAppStore } from "./store";
@@ -34,6 +34,16 @@ const logoPositions: Array<{ id: LogoPosition; label: string }> = [
 ];
 
 const formatNumber = (value: number) => value.toLocaleString("en-US");
+const normalizeCameraLabel = (camera?: string) =>
+  (camera ?? "")
+    .replace(/^NIKON CORPORATION\s+NIKON/i, "Nikon")
+    .replace(/^NIKON CORPORATION/i, "Nikon")
+    .replace(/^NIKON/i, "Nikon")
+    .replace(/^SONY\s+SONY/i, "Sony")
+    .replace(/^SONY/i, "Sony")
+    .replace(/^Canon\s+Canon/i, "Canon")
+    .replace(/_2\b/g, " II")
+    .trim();
 
 function Slider({
   label,
@@ -108,11 +118,7 @@ function Toggle({
 function AppHeader() {
   return (
     <header className="app-header">
-      <div className="traffic-lights" aria-hidden="true">
-        <span className="red" />
-        <span className="yellow" />
-        <span className="green" />
-      </div>
+      <div className="header-spacer" aria-hidden="true" />
       <div className="brand">
         <img src={logoMark} alt="" />
         <strong>PhotoFrame Pro</strong>
@@ -239,6 +245,7 @@ function PreviewPanel({
   const [previewUrl, setPreviewUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const output = getOutputSize(settings);
+  const previewStyle = { "--preview-aspect": `${output.width} / ${output.height}` } as CSSProperties;
 
   useEffect(() => {
     let alive = true;
@@ -289,7 +296,12 @@ function PreviewPanel({
 
       <div className="canvas-shell">
         {previewUrl ? (
-          <img className={busy ? "preview-image refreshing" : "preview-image"} src={previewUrl} alt="当前输出预览" />
+          <img
+            className={busy ? "preview-image refreshing" : "preview-image"}
+            src={previewUrl}
+            alt="当前输出预览"
+            style={previewStyle}
+          />
         ) : (
           <div className="empty-preview">
             <ZoomIn size={30} />
@@ -627,7 +639,7 @@ function ExifControls({
           相机
           <input
             value={settings.exif.cameraOverride}
-            placeholder={selectedPhoto?.exif.camera}
+            placeholder={normalizeCameraLabel(selectedPhoto?.exif.camera)}
             onChange={(event) => updateSettings({ exif: { cameraOverride: event.target.value } })}
           />
         </label>
@@ -752,6 +764,7 @@ function ExportBar({ onExport }: { onExport: () => void }) {
   const photos = useAppStore((state) => state.photos);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const progress = useAppStore((state) => state.exportProgress);
+  const isDesktop = Boolean(window.photoFrameAPI);
 
   const chooseDirectory = async () => {
     const directory = await window.photoFrameAPI?.chooseOutputDirectory();
@@ -785,7 +798,7 @@ function ExportBar({ onExport }: { onExport: () => void }) {
       </label>
       <label className="output-dir">
         输出目录：
-        <input readOnly value={settings.export.outputDirectory || "浏览器模式将直接下载"} />
+        <input readOnly value={settings.export.outputDirectory || (isDesktop ? "请选择输出目录" : "浏览器模式将直接下载")} />
         <button type="button" onClick={chooseDirectory}>
           更改
         </button>
