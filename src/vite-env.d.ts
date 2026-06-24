@@ -3,6 +3,8 @@
 export interface NativeImagePayload {
   name: string;
   path?: string;
+  size?: number;
+  modifiedAt?: string;
   dataUrl: string;
 }
 
@@ -16,7 +18,6 @@ declare global {
     photoFrameAPI?: {
       selectImages: () => Promise<NativeImagePayload[]>;
       selectImageFolder: () => Promise<NativeImagePayload[]>;
-      selectLogo: () => Promise<NativeImagePayload | null>;
       chooseOutputDirectory: () => Promise<string | null>;
       saveExports: (payload: NativeSavePayload) => Promise<{ saved: string[] }>;
       showInFolder: (filePath: string) => Promise<void>;

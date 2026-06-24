@@ -1,26 +1,30 @@
 export type BackgroundMode = "blur" | "solid" | "gradient";
-export type LogoPosition =
-  | "top-left"
-  | "top-right"
-  | "bottom-left"
-  | "bottom-right"
-  | "center"
-  | "custom";
 export type ExportFormat = "jpg" | "png" | "webp";
 export type PhotoStatus = "ready" | "processing" | "done" | "error";
-
-export interface RatioPreset {
-  id: string;
-  label: string;
-  width: number;
-  height: number;
-}
 
 export interface ExifDisplay {
   camera: string;
   lens: string;
   exposure: string;
   date: string;
+}
+
+export interface PhotoDetails {
+  fileName: string;
+  fileSize: string;
+  modifiedAt: string;
+  dimensions: string;
+  cameraMake: string;
+  cameraModel: string;
+  software: string;
+  capturedAt: string;
+  flash: string;
+  focalLength: string;
+  shutter: string;
+  aperture: string;
+  iso: string;
+  lensMake: string;
+  lensModel: string;
 }
 
 export interface PhotoItem {
@@ -31,6 +35,7 @@ export interface PhotoItem {
   height: number;
   status: PhotoStatus;
   exif: ExifDisplay;
+  details: PhotoDetails;
   sourcePath?: string;
 }
 
@@ -56,13 +61,8 @@ export interface SubjectSettings {
 
 export interface LogoSettings {
   enabled: boolean;
-  dataUrl?: string;
-  name?: string;
   size: number;
   opacity: number;
-  position: LogoPosition;
-  customX: number;
-  customY: number;
 }
 
 export interface ExifSettings {
@@ -79,13 +79,11 @@ export interface ExportSettings {
   format: ExportFormat;
   quality: number;
   outputDirectory: string;
-  naming: "original-frame" | "original-ratio" | "sequence";
+  naming: "original-frame" | "sequence";
 }
 
 export interface FrameSettings {
-  ratioId: string;
-  customWidth: number;
-  customHeight: number;
+  layout: "photo-card" | "blur-poster" | "bottom-border";
   background: BackgroundSettings;
   subject: SubjectSettings;
   logo: LogoSettings;

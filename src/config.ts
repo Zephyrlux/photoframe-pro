@@ -1,42 +1,29 @@
-import type { DeepPartial, FrameSettings, FrameTemplate, RatioPreset } from "./types";
-
-export const ratios: RatioPreset[] = [
-  { id: "1:1", label: "1:1", width: 1080, height: 1080 },
-  { id: "4:5", label: "4:5", width: 1080, height: 1350 },
-  { id: "9:16", label: "9:16", width: 1080, height: 1920 },
-  { id: "3:4", label: "3:4", width: 1080, height: 1440 },
-  { id: "custom", label: "自定义", width: 1080, height: 1350 }
-];
+import type { DeepPartial, FrameSettings, FrameTemplate } from "./types";
 
 export const defaultSettings: FrameSettings = {
-  ratioId: "4:5",
-  customWidth: 1080,
-  customHeight: 1350,
+  layout: "blur-poster",
   background: {
     mode: "blur",
-    blur: 60,
-    brightness: 0,
+    blur: 48,
+    brightness: -14,
     opacity: 100,
     solidColor: "#FFFFFF",
     gradientFrom: "#13233D",
     gradientTo: "#10131A"
   },
   subject: {
-    borderEnabled: true,
+    borderEnabled: false,
     borderColor: "#FFFFFF",
-    borderWidth: 20,
-    radius: 20,
+    borderWidth: 0,
+    radius: 18,
     shadowEnabled: true,
-    shadowStrength: 30,
-    shadowBlur: 20
+    shadowStrength: 42,
+    shadowBlur: 34
   },
   logo: {
-    enabled: true,
-    size: 120,
-    opacity: 80,
-    position: "bottom-right",
-    customX: 50,
-    customY: 50
+    enabled: false,
+    size: 90,
+    opacity: 92
   },
   exif: {
     enabled: true,
@@ -44,8 +31,8 @@ export const defaultSettings: FrameSettings = {
     lensOverride: "",
     exposureOverride: "",
     dateOverride: "",
-    textColor: "#111827",
-    dividerColor: "#D6DAE2"
+    textColor: "#F5F7FA",
+    dividerColor: "rgba(255,255,255,.26)"
   },
   export: {
     format: "jpg",
@@ -69,70 +56,74 @@ const makeTemplateSettings = (patch: DeepPartial<FrameSettings>): FrameSettings 
 
 export const builtInTemplates: FrameTemplate[] = [
   {
-    id: "photography-white",
-    name: "摄影白边模板",
-    description: "白色相纸边框、EXIF 底栏和右下 Logo。",
-    builtIn: true,
-    settings: makeTemplateSettings({})
-  },
-  {
-    id: "xiaohongshu-blur",
-    name: "小红书 4:5 模糊背景",
-    description: "强模糊背景、柔和阴影，适合竖图发布。",
+    id: "gaussian-blur",
+    name: "高斯模糊模板",
+    description: "原图高斯模糊铺底，前景照片和参数文字叠放。",
     builtIn: true,
     settings: makeTemplateSettings({
-      ratioId: "4:5",
-      background: { blur: 76, brightness: -6, opacity: 100 },
-      subject: { borderWidth: 18, radius: 26, shadowStrength: 42, shadowBlur: 26 },
-      logo: { size: 96, opacity: 64 }
-    })
-  },
-  {
-    id: "product-clean",
-    name: "商品图白底模板",
-    description: "纯白底、轻边框，适合电商统一尺寸。",
-    builtIn: true,
-    settings: makeTemplateSettings({
-      ratioId: "1:1",
-      background: { mode: "solid", solidColor: "#FFFFFF" },
+      layout: "blur-poster",
+      background: { mode: "blur", blur: 48, brightness: -14, opacity: 100 },
       subject: {
-        borderEnabled: true,
+        borderEnabled: false,
         borderColor: "#FFFFFF",
-        borderWidth: 36,
-        radius: 10,
+        borderWidth: 0,
+        radius: 18,
         shadowEnabled: true,
-        shadowStrength: 14,
-        shadowBlur: 18
+        shadowStrength: 46,
+        shadowBlur: 36
       },
-      logo: { enabled: true, opacity: 45, size: 88, position: "top-right" },
-      exif: { enabled: false }
-    })
-  },
-  {
-    id: "black-premium",
-    name: "黑色高级感模板",
-    description: "暗色渐变背景、黑色相纸和浅色 EXIF。",
-    builtIn: true,
-    settings: makeTemplateSettings({
-      background: {
-        mode: "gradient",
-        gradientFrom: "#07080C",
-        gradientTo: "#1A2130"
-      },
-      subject: {
-        borderEnabled: true,
-        borderColor: "#050608",
-        borderWidth: 24,
-        radius: 16,
-        shadowStrength: 52,
-        shadowBlur: 30
-      },
+      logo: { enabled: false, opacity: 92, size: 90 },
       exif: {
         enabled: true,
         textColor: "#F5F7FA",
-        dividerColor: "#303642"
+        dividerColor: "rgba(255,255,255,.26)"
+      }
+    })
+  },
+  {
+    id: "bottom-border",
+    name: "通用底部边框模板",
+    description: "照片保持原比例，底部留出品牌、机型和参数信息。",
+    builtIn: true,
+    settings: makeTemplateSettings({
+      layout: "bottom-border",
+      background: { mode: "blur", blur: 38, brightness: -8, opacity: 100 },
+      subject: {
+        borderEnabled: true,
+        borderColor: "#FFFFFF",
+        borderWidth: 18,
+        radius: 14,
+        shadowEnabled: true,
+        shadowStrength: 34,
+        shadowBlur: 24
       },
-      logo: { opacity: 72, size: 110 }
+      logo: { enabled: true, size: 118, opacity: 94 },
+      exif: {
+        enabled: true,
+        textColor: "#111827",
+        dividerColor: "#D6DAE2"
+      }
+    })
+  },
+  {
+    id: "white-border",
+    name: "通用白色边框模板",
+    description: "经典白边相纸，适合批量统一输出。",
+    builtIn: true,
+    settings: makeTemplateSettings({
+      layout: "photo-card",
+      background: { mode: "blur", blur: 60, brightness: 0, opacity: 100 },
+      subject: {
+        borderEnabled: true,
+        borderColor: "#FFFFFF",
+        borderWidth: 20,
+        radius: 18,
+        shadowEnabled: true,
+        shadowStrength: 32,
+        shadowBlur: 22
+      },
+      logo: { enabled: true, opacity: 88, size: 110 },
+      exif: { enabled: true, textColor: "#111827", dividerColor: "#D6DAE2" }
     })
   }
 ];

@@ -1,6 +1,6 @@
 import exifr from "exifr";
 import type { NativeImagePayload } from "../vite-env";
-import type { ExifDisplay, PhotoItem } from "../types";
+import type { ExifDisplay, PhotoDetails, PhotoItem } from "../types";
 
 const fallbackExif: ExifDisplay = {
   camera: "Sony A7R V",
@@ -23,6 +23,11 @@ const scenicNames = [
   "DSC_0011.jpg",
   "DSC_0012.jpg"
 ];
+
+interface ParsedPhotoMetadata {
+  exif: ExifDisplay;
+  details: PhotoDetails;
+}
 
 export const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -57,13 +62,51 @@ const formatDate = (value?: Date | string | number) => {
   )}:${pad(date.getSeconds())}`;
 };
 
+const formatFileSize = (bytes?: number) => {
+  if (!bytes || bytes <= 0) return "";
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+};
+
 const formatExposure = (seconds?: number) => {
   if (!seconds) return "";
   if (seconds >= 1) return `${seconds.toFixed(seconds % 1 === 0 ? 0 : 1)}s`;
   return `1/${Math.round(1 / seconds)}s`;
 };
 
+const formatFocalLength = (value: unknown) => {
+  const focal = Number(value);
+  if (!Number.isFinite(focal) || focal <= 0) return "";
+  return `${Math.round(focal)}mm`;
+};
+
+const formatAperture = (value: unknown) => {
+  const aperture = Number(value);
+  if (!Number.isFinite(aperture) || aperture <= 0) return "";
+  return `f/${aperture.toFixed(1).replace(".0", "")}`;
+};
+
+const formatIso = (value: unknown) => {
+  const iso = Number(value);
+  if (!Number.isFinite(iso) || iso <= 0) return "";
+  return `ISO ${Math.round(iso)}`;
+};
+
 const cleanExifText = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim();
+
+const formatFlash = (value: unknown) => {
+  if (value === null || value === undefined || value === "") return "";
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if ("FlashFired" in record) return record.FlashFired ? "开启" : "关闭";
+    if ("fired" in record) return record.fired ? "开启" : "关闭";
+  }
+
+  const text = cleanExifText(value);
+  if (text === "0") return "关闭";
+  if (text === "1") return "开启";
+  return text;
+};
 
 const normalizeMake = (value: unknown) => {
   const make = cleanExifText(value);
@@ -87,7 +130,25 @@ const formatCamera = (makeValue: unknown, modelValue: unknown) => {
   return [make, model].filter(Boolean).join(" ").trim();
 };
 
-const parseExif = async (arrayBuffer: ArrayBuffer): Promise<ExifDisplay> => {
+const emptyDetails = (fileName = "", fileSize = "", modifiedAt = "", dimensions = ""): PhotoDetails => ({
+  fileName,
+  fileSize,
+  modifiedAt,
+  dimensions,
+  cameraMake: "",
+  cameraModel: "",
+  software: "",
+  capturedAt: "",
+  flash: "",
+  focalLength: "",
+  shutter: "",
+  aperture: "",
+  iso: "",
+  lensMake: "",
+  lensModel: ""
+});
+
+const parseExif = async (arrayBuffer: ArrayBuffer): Promise<ParsedPhotoMetadata> => {
   try {
     const meta = await exifr.parse(arrayBuffer, {
       tiff: true,
@@ -99,26 +160,55 @@ const parseExif = async (arrayBuffer: ArrayBuffer): Promise<ExifDisplay> => {
       reviveValues: true
     });
 
-    if (!meta) return fallbackExif;
+    if (!meta) return { exif: fallbackExif, details: emptyDetails() };
 
     const camera = formatCamera(meta.Make, meta.Model) || fallbackExif.camera;
-    const lens = meta.LensModel || meta.Lens || fallbackExif.lens;
-    const focal = meta.FocalLength ? `${Math.round(Number(meta.FocalLength))}mm` : "";
-    const aperture = meta.FNumber ? `f/${Number(meta.FNumber).toFixed(1).replace(".0", "")}` : "";
+    const lens = cleanExifText(meta.LensModel || meta.Lens) || fallbackExif.lens;
+    const focal = formatFocalLength(meta.FocalLength);
+    const aperture = formatAperture(meta.FNumber);
     const shutter = formatExposure(Number(meta.ExposureTime));
-    const iso = meta.ISO ? `ISO${meta.ISO}` : "";
+    const iso = formatIso(meta.ISO).replace("ISO ", "ISO");
     const exposure = [focal, aperture, shutter, iso].filter(Boolean).join(" | ") || fallbackExif.exposure;
     const date = formatDate(meta.DateTimeOriginal || meta.CreateDate || meta.ModifyDate) || fallbackExif.date;
+    const details = emptyDetails();
+    details.cameraMake = cleanExifText(meta.Make);
+    details.cameraModel = cleanExifText(meta.Model);
+    details.software = cleanExifText(meta.Software);
+    details.capturedAt = date;
+    details.flash = formatFlash(meta.Flash) || cleanExifText(meta.FlashpixVersion);
+    details.focalLength = focal;
+    details.shutter = shutter;
+    details.aperture = aperture;
+    details.iso = formatIso(meta.ISO);
+    details.lensMake = cleanExifText(meta.LensMake);
+    details.lensModel = lens;
 
-    return { camera, lens, exposure, date };
+    return { exif: { camera, lens, exposure, date }, details };
   } catch {
-    return fallbackExif;
+    return { exif: fallbackExif, details: emptyDetails() };
   }
 };
 
+const finalizeDetails = (
+  details: PhotoDetails,
+  fileName: string,
+  fileSize: string,
+  modifiedAt: string,
+  width: number,
+  height: number
+): PhotoDetails => ({
+  ...details,
+  fileName,
+  fileSize,
+  modifiedAt,
+  dimensions: `${formatNumber(width)} × ${formatNumber(height)}`
+});
+
+const formatNumber = (value: number) => value.toLocaleString("en-US");
+
 export const createPhotoFromFile = async (file: File): Promise<PhotoItem> => {
   const dataUrl = await readFileAsDataUrl(file);
-  const [image, exif] = await Promise.all([
+  const [image, metadata] = await Promise.all([
     loadImageElement(dataUrl),
     file.arrayBuffer().then(parseExif)
   ]);
@@ -130,12 +220,20 @@ export const createPhotoFromFile = async (file: File): Promise<PhotoItem> => {
     width: image.naturalWidth,
     height: image.naturalHeight,
     status: "ready",
-    exif
+    exif: metadata.exif,
+    details: finalizeDetails(
+      metadata.details,
+      file.name,
+      formatFileSize(file.size),
+      formatDate(file.lastModified),
+      image.naturalWidth,
+      image.naturalHeight
+    )
   };
 };
 
 export const createPhotoFromNative = async (payload: NativeImagePayload): Promise<PhotoItem> => {
-  const [image, exif] = await Promise.all([
+  const [image, metadata] = await Promise.all([
     loadImageElement(payload.dataUrl),
     dataUrlToArrayBuffer(payload.dataUrl).then(parseExif)
   ]);
@@ -147,7 +245,15 @@ export const createPhotoFromNative = async (payload: NativeImagePayload): Promis
     width: image.naturalWidth,
     height: image.naturalHeight,
     status: "ready",
-    exif,
+    exif: metadata.exif,
+    details: finalizeDetails(
+      metadata.details,
+      payload.name,
+      formatFileSize(payload.size),
+      formatDate(payload.modifiedAt),
+      image.naturalWidth,
+      image.naturalHeight
+    ),
     sourcePath: payload.path
   };
 };
@@ -329,5 +435,16 @@ export const createDemoPhotos = (): PhotoItem[] =>
       ...fallbackExif,
       camera: index % 3 === 0 ? "Sony A7R V" : index % 3 === 1 ? "Canon EOS R5" : "Nikon Z8",
       exposure: index % 2 === 0 ? "70mm | f/2.8 | 1/250s | ISO100" : "35mm | f/4 | 1/500s | ISO200"
+    },
+    details: {
+      ...emptyDetails(name, "示例图片", "示例数据", "6,000 × 4,000"),
+      cameraMake: index % 3 === 0 ? "Sony" : index % 3 === 1 ? "Canon" : "Nikon",
+      cameraModel: index % 3 === 0 ? "A7R V" : index % 3 === 1 ? "EOS R5" : "Z8",
+      capturedAt: fallbackExif.date,
+      focalLength: index % 2 === 0 ? "70mm" : "35mm",
+      shutter: index % 2 === 0 ? "1/250s" : "1/500s",
+      aperture: index % 2 === 0 ? "f/2.8" : "f/4",
+      iso: index % 2 === 0 ? "ISO 100" : "ISO 200",
+      lensModel: fallbackExif.lens
     }
   }));

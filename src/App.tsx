@@ -1,39 +1,25 @@
 import {
   Check,
-  ChevronRight,
   Download,
   FolderOpen,
   Grid2X2,
   ImagePlus,
-  Import,
-  Maximize2,
-  Minus,
-  Plus,
-  Save,
-  Settings,
+  Info,
+  SlidersHorizontal,
   Trash2,
-  Upload,
   ZoomIn
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import logoMark from "../photoframe_pro_design_pack/assets/logo_mark.svg";
-import { ratios } from "./config";
 import { allTemplates, useAppStore } from "./store";
-import type { DeepPartial, FrameSettings, FrameTemplate, LogoPosition, PhotoItem } from "./types";
+import type { DeepPartial, FrameSettings, FrameTemplate, PhotoItem } from "./types";
 import type { NativeImagePayload } from "./vite-env";
-import { createPhotoFromFile, createPhotoFromNative, readFileAsDataUrl } from "./lib/image";
+import { createPhotoFromFile, createPhotoFromNative } from "./lib/image";
 import { getMimeType, getOutputSize, makeExportName, renderPhotoToCanvas } from "./lib/renderer";
 
-const logoPositions: Array<{ id: LogoPosition; label: string }> = [
-  { id: "top-left", label: "左上" },
-  { id: "top-right", label: "右上" },
-  { id: "bottom-left", label: "左下" },
-  { id: "bottom-right", label: "右下" },
-  { id: "center", label: "居中" },
-  { id: "custom", label: "自定" }
-];
-
 const formatNumber = (value: number) => value.toLocaleString("en-US");
+type SettingsTab = "info" | "templates" | "border";
+
 const normalizeCameraLabel = (camera?: string) =>
   (camera ?? "")
     .replace(/^NIKON CORPORATION\s+NIKON/i, "Nikon")
@@ -44,6 +30,29 @@ const normalizeCameraLabel = (camera?: string) =>
     .replace(/^Canon\s+Canon/i, "Canon")
     .replace(/_2\b/g, " II")
     .trim();
+
+const photoDetailsRows = (photo?: PhotoItem) => {
+  if (!photo) return [];
+  const details = photo.details;
+  const dimensions = details?.dimensions || `${formatNumber(photo.width)} × ${formatNumber(photo.height)}`;
+  return [
+    ["文件名", details?.fileName || photo.name],
+    ["文件大小", details?.fileSize || "未知"],
+    ["修改时间", details?.modifiedAt || "未知"],
+    ["图片尺寸", dimensions],
+    ["相机厂商", details?.cameraMake || "未知"],
+    ["相机型号", details?.cameraModel || normalizeCameraLabel(photo.exif.camera) || "未知"],
+    ["软件", details?.software || "未知"],
+    ["拍摄日期", details?.capturedAt || photo.exif.date || "未知"],
+    ["闪光灯", details?.flash || "未知"],
+    ["焦距", details?.focalLength || "未知"],
+    ["快门", details?.shutter || "未知"],
+    ["光圈", details?.aperture || "未知"],
+    ["ISO", details?.iso || "未知"],
+    ["镜头厂商", details?.lensMake || "未知"],
+    ["镜头型号", details?.lensModel || photo.exif.lens || "未知"]
+  ];
+};
 
 function Slider({
   label,
@@ -118,28 +127,10 @@ function Toggle({
 function AppHeader() {
   return (
     <header className="app-header">
-      <div className="header-spacer" aria-hidden="true" />
       <div className="brand">
         <img src={logoMark} alt="" />
         <strong>PhotoFrame Pro</strong>
       </div>
-      <nav className="toolbar" aria-label="应用工具栏">
-        <button type="button">
-          <Grid2X2 size={16} />
-          模板库
-        </button>
-        <button type="button">
-          <Save size={16} />
-          保存模板
-        </button>
-        <button type="button">
-          <Import size={16} />
-          导入模板
-        </button>
-        <button type="button" aria-label="设置">
-          <Settings size={17} />
-        </button>
-      </nav>
     </header>
   );
 }
@@ -214,18 +205,7 @@ function LeftPanel({
         )}
       </div>
 
-      <div className="list-footer">
-        <button type="button" aria-label="列表视图">
-          <Grid2X2 size={15} />
-        </button>
-        <button type="button" aria-label="紧凑视图">
-          <Grid2X2 size={15} />
-        </button>
-        <button type="button" aria-label="缩略图比例">
-          <Maximize2 size={15} />
-        </button>
-        <input aria-label="缩略图大小" type="range" min="48" max="120" defaultValue="78" />
-      </div>
+      <div className="list-footer">本地处理，不上传图片</div>
     </aside>
   );
 }
@@ -244,8 +224,10 @@ function PreviewPanel({
   const selectPhoto = useAppStore((state) => state.selectPhoto);
   const [previewUrl, setPreviewUrl] = useState("");
   const [busy, setBusy] = useState(false);
-  const output = getOutputSize(settings);
-  const previewStyle = { "--preview-aspect": `${output.width} / ${output.height}` } as CSSProperties;
+  const output = selectedPhoto ? getOutputSize(selectedPhoto) : null;
+  const previewStyle = {
+    "--preview-aspect": output ? `${output.width} / ${output.height}` : "4 / 3"
+  } as CSSProperties;
 
   useEffect(() => {
     let alive = true;
@@ -276,22 +258,7 @@ function PreviewPanel({
     <main className="preview-panel">
       <div className="preview-toolbar">
         <h2>预览</h2>
-        <div className="zoom-control">
-          <button type="button" aria-label="缩小">
-            <Minus size={14} />
-          </button>
-          <span>100%</span>
-          <button type="button" aria-label="放大">
-            <Plus size={14} />
-          </button>
-          <button type="button" aria-label="全屏">
-            <Maximize2 size={15} />
-          </button>
-        </div>
-        <div className="output-size">
-          输出尺寸： {output.width} × {output.height} ({settings.ratioId})
-          <button type="button">修改尺寸</button>
-        </div>
+        <div className="output-size">{output ? `输出尺寸：${formatNumber(output.width)} × ${formatNumber(output.height)}（原图比例）` : "输出尺寸：原图比例"}</div>
       </div>
 
       <div className="canvas-shell">
@@ -332,58 +299,9 @@ function PreviewPanel({
               <img src={photo.dataUrl} alt={photo.name} />
             </button>
           ))}
-          {photos.length > 0 && (
-            <button className="thumb-next" type="button" aria-label="更多预览">
-              <ChevronRight size={20} />
-            </button>
-          )}
         </div>
       </div>
     </main>
-  );
-}
-
-function RatioPicker({ settings, updateSettings }: { settings: FrameSettings; updateSettings: (patch: DeepPartial<FrameSettings>) => void }) {
-  return (
-    <Section title="比例">
-      <div className="ratio-grid">
-        {ratios.map((ratio) => (
-          <button
-            key={ratio.id}
-            className={settings.ratioId === ratio.id ? "selected" : ""}
-            type="button"
-            onClick={() => updateSettings({ ratioId: ratio.id })}
-          >
-            <strong>{ratio.label}</strong>
-            <small>
-              {ratio.id === "custom" ? "尺寸" : `${ratio.width}×${ratio.height}`}
-            </small>
-          </button>
-        ))}
-      </div>
-      {settings.ratioId === "custom" && (
-        <div className="two-inputs">
-          <label>
-            宽度
-            <input
-              type="number"
-              min="320"
-              value={settings.customWidth}
-              onChange={(event) => updateSettings({ customWidth: Number(event.target.value) })}
-            />
-          </label>
-          <label>
-            高度
-            <input
-              type="number"
-              min="320"
-              value={settings.customHeight}
-              onChange={(event) => updateSettings({ customHeight: Number(event.target.value) })}
-            />
-          </label>
-        </div>
-      )}
-    </Section>
   );
 }
 
@@ -542,28 +460,20 @@ function SubjectControls({
   );
 }
 
-function LogoControls({
+function CameraLogoControls({
   settings,
-  updateSettings,
-  onSelectLogo
+  updateSettings
 }: {
   settings: FrameSettings;
   updateSettings: (patch: DeepPartial<FrameSettings>) => void;
-  onSelectLogo: () => void;
 }) {
   return (
-    <Section title="水印 / Logo">
+    <Section title="相机 Logo">
       <Toggle
         checked={settings.logo.enabled}
-        label="启用 Logo"
+        label="根据 EXIF 自动显示品牌 Logo"
         onChange={(checked) => updateSettings({ logo: { enabled: checked } })}
       />
-      <div className="logo-picker">
-        <button type="button" onClick={onSelectLogo}>
-          <Upload size={16} />
-          {settings.logo.name ? settings.logo.name : "更换 Logo"}
-        </button>
-      </div>
       <Slider
         label="大小"
         min={40}
@@ -578,38 +488,6 @@ function LogoControls({
         value={settings.logo.opacity}
         onChange={(value) => updateSettings({ logo: { opacity: value } })}
       />
-      <div className="position-grid">
-        {logoPositions.map((position) => (
-          <button
-            key={position.id}
-            className={settings.logo.position === position.id ? "selected" : ""}
-            type="button"
-            onClick={() => updateSettings({ logo: { position: position.id } })}
-          >
-            {position.label}
-          </button>
-        ))}
-      </div>
-      {settings.logo.position === "custom" && (
-        <>
-          <Slider
-            label="X"
-            min={0}
-            max={100}
-            suffix="%"
-            value={settings.logo.customX}
-            onChange={(value) => updateSettings({ logo: { customX: value } })}
-          />
-          <Slider
-            label="Y"
-            min={0}
-            max={100}
-            suffix="%"
-            value={settings.logo.customY}
-            onChange={(value) => updateSettings({ logo: { customY: value } })}
-          />
-        </>
-      )}
     </Section>
   );
 }
@@ -673,53 +551,26 @@ function ExifControls({
 }
 
 function TemplateControls({
-  templates,
-  onExportTemplates,
-  onImportTemplates
+  templates
 }: {
   templates: FrameTemplate[];
-  onExportTemplates: () => void;
-  onImportTemplates: () => void;
 }) {
-  const { applyTemplate, deleteTemplate, saveCurrentTemplate } = useAppStore();
-  const [name, setName] = useState("");
+  const settings = useAppStore((state) => state.settings);
+  const applyTemplate = useAppStore((state) => state.applyTemplate);
 
   return (
-    <Section title="模板设置">
-      <div className="template-save">
-        <input value={name} placeholder="模板名称" onChange={(event) => setName(event.target.value)} />
-        <button
-          type="button"
-          onClick={() => {
-            saveCurrentTemplate(name);
-            setName("");
-          }}
-        >
-          保存
-        </button>
-      </div>
-      <div className="template-actions">
-        <button type="button" onClick={onImportTemplates}>
-          <Import size={15} />
-          导入模板
-        </button>
-        <button type="button" onClick={onExportTemplates}>
-          <Download size={15} />
-          导出模板
-        </button>
-      </div>
+    <Section title="模板">
       <div className="template-list">
         {templates.map((template) => (
           <article key={template.id} className="template-item">
-            <button type="button" onClick={() => applyTemplate(template)}>
+            <button
+              className={settings.layout === template.settings.layout ? "selected" : ""}
+              type="button"
+              onClick={() => applyTemplate(template)}
+            >
               <strong>{template.name}</strong>
               <small>{template.description}</small>
             </button>
-            {!template.builtIn && (
-              <button className="icon-danger" type="button" onClick={() => deleteTemplate(template.id)} aria-label="删除模板">
-                <Trash2 size={14} />
-              </button>
-            )}
           </article>
         ))}
       </div>
@@ -727,34 +578,74 @@ function TemplateControls({
   );
 }
 
-function SettingsPanel({
-  selectedPhoto,
-  onSelectLogo,
-  onImportTemplates,
-  onExportTemplates
-}: {
-  selectedPhoto?: PhotoItem;
-  onSelectLogo: () => void;
-  onImportTemplates: () => void;
-  onExportTemplates: () => void;
-}) {
+function PhotoInfoPanel({ photo }: { photo?: PhotoItem }) {
+  const rows = photoDetailsRows(photo);
+
+  if (!photo) {
+    return (
+      <section className="photo-info-empty">
+        <Info size={22} />
+        <strong>还没有选中照片</strong>
+        <span>导入图片后会在这里展示文件信息和相机参数。</span>
+      </section>
+    );
+  }
+
+  return (
+    <Section title="基础属性">
+      <div className="info-grid">
+        {rows.map(([label, value]) => (
+          <div className="info-row" key={label}>
+            <span>{label}</span>
+            <strong title={value}>{value}</strong>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function SettingsPanel({ selectedPhoto }: { selectedPhoto?: PhotoItem }) {
   const settings = useAppStore((state) => state.settings);
-  const savedTemplates = useAppStore((state) => state.savedTemplates);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const templates = useMemo(() => allTemplates(savedTemplates), [savedTemplates]);
+  const [tab, setTab] = useState<SettingsTab>("info");
+  const templates = allTemplates();
+
+  const tabs: Array<{ id: SettingsTab; label: string; icon: ReactNode }> = [
+    { id: "info", label: "信息", icon: <Info size={15} /> },
+    { id: "templates", label: "模板", icon: <Grid2X2 size={15} /> },
+    { id: "border", label: "边框", icon: <SlidersHorizontal size={15} /> }
+  ];
 
   return (
     <aside className="right-panel panel">
-      <RatioPicker settings={settings} updateSettings={updateSettings} />
-      <BackgroundControls settings={settings} updateSettings={updateSettings} />
-      <SubjectControls settings={settings} updateSettings={updateSettings} />
-      <LogoControls settings={settings} updateSettings={updateSettings} onSelectLogo={onSelectLogo} />
-      <ExifControls settings={settings} selectedPhoto={selectedPhoto} updateSettings={updateSettings} />
-      <TemplateControls
-        templates={templates}
-        onImportTemplates={onImportTemplates}
-        onExportTemplates={onExportTemplates}
-      />
+      <div className="panel-tabs" role="tablist" aria-label="右侧设置">
+        {tabs.map((item) => (
+          <button
+            key={item.id}
+            className={tab === item.id ? "active" : ""}
+            type="button"
+            role="tab"
+            aria-selected={tab === item.id}
+            onClick={() => setTab(item.id)}
+          >
+            {item.icon}
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <div className={tab === "info" ? "panel-body info" : "panel-body"}>
+        {tab === "info" && <PhotoInfoPanel photo={selectedPhoto} />}
+        {tab === "templates" && <TemplateControls templates={templates} />}
+        {tab === "border" && (
+          <>
+            <BackgroundControls settings={settings} updateSettings={updateSettings} />
+            <SubjectControls settings={settings} updateSettings={updateSettings} />
+            <CameraLogoControls settings={settings} updateSettings={updateSettings} />
+            <ExifControls settings={settings} selectedPhoto={selectedPhoto} updateSettings={updateSettings} />
+          </>
+        )}
+      </div>
     </aside>
   );
 }
@@ -810,7 +701,6 @@ function ExportBar({ onExport }: { onExport: () => void }) {
           onChange={(event) => updateSettings({ export: { naming: event.target.value as FrameSettings["export"]["naming"] } })}
         >
           <option value="original-frame">原文件名 + _frame</option>
-          <option value="original-ratio">原文件名 + 比例</option>
           <option value="sequence">photoframe_序号</option>
         </select>
       </label>
@@ -829,8 +719,6 @@ function ExportBar({ onExport }: { onExport: () => void }) {
 export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  const templateInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
   const photos = useAppStore((state) => state.photos);
@@ -839,7 +727,6 @@ export default function App() {
   const settings = useAppStore((state) => state.settings);
   const addPhotos = useAppStore((state) => state.addPhotos);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const importTemplates = useAppStore((state) => state.importTemplates);
   const setExportProgress = useAppStore((state) => state.setExportProgress);
   const setPhotoStatus = useAppStore((state) => state.setPhotoStatus);
   const setAllPhotoStatus = useAppStore((state) => state.setAllPhotoStatus);
@@ -872,33 +759,6 @@ export default function App() {
       folderInputRef.current?.setAttribute("webkitdirectory", "");
       folderInputRef.current?.click();
     }
-  };
-
-  const handleLogo = async () => {
-    if (window.photoFrameAPI) {
-      const logo = await window.photoFrameAPI.selectLogo();
-      if (logo) updateSettings({ logo: { dataUrl: logo.dataUrl, name: logo.name, enabled: true } });
-    } else {
-      logoInputRef.current?.click();
-    }
-  };
-
-  const handleExportTemplates = () => {
-    const saved = useAppStore.getState().savedTemplates;
-    const data = new Blob([JSON.stringify(saved, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(data);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "photoframe-pro-templates.json";
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportTemplatesFile = async (files: FileList | null) => {
-    const file = files?.[0];
-    if (!file) return;
-    const parsed = JSON.parse(await file.text()) as FrameTemplate[];
-    importTemplates(Array.isArray(parsed) ? parsed : []);
   };
 
   const downloadInBrowser = (name: string, dataUrl: string) => {
@@ -977,12 +837,7 @@ export default function App() {
           onImportImages={handleImportImages}
           onImportFolder={handleImportFolder}
         />
-        <SettingsPanel
-          selectedPhoto={selectedPhoto}
-          onSelectLogo={handleLogo}
-          onImportTemplates={() => templateInputRef.current?.click()}
-          onExportTemplates={handleExportTemplates}
-        />
+        <SettingsPanel selectedPhoto={selectedPhoto} />
       </div>
       <ExportBar onExport={handleExport} />
 
@@ -1001,24 +856,6 @@ export default function App() {
         accept="image/jpeg,image/png,image/webp,image/tiff"
         multiple
         onChange={(event) => void importFiles(Array.from(event.target.files ?? []))}
-      />
-      <input
-        ref={logoInputRef}
-        className="hidden-input"
-        type="file"
-        accept="image/png,image/svg+xml,image/jpeg,image/webp"
-        onChange={async (event) => {
-          const file = event.target.files?.[0];
-          if (!file) return;
-          updateSettings({ logo: { dataUrl: await readFileAsDataUrl(file), name: file.name, enabled: true } });
-        }}
-      />
-      <input
-        ref={templateInputRef}
-        className="hidden-input"
-        type="file"
-        accept="application/json"
-        onChange={(event) => void handleImportTemplatesFile(event.target.files)}
       />
       <div className="drop-hint">
         <ZoomIn size={26} />

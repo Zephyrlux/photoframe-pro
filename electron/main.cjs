@@ -25,7 +25,9 @@ function createWindow() {
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
   if (devServerUrl) {
     win.loadURL(devServerUrl);
-    win.webContents.openDevTools({ mode: "detach" });
+    if (process.env.OPEN_DEVTOOLS === "1") {
+      win.webContents.openDevTools({ mode: "detach" });
+    }
   } else {
     win.loadFile(path.join(__dirname, "../dist/index.html"));
   }
@@ -33,6 +35,7 @@ function createWindow() {
 
 async function fileToPayload(filePath) {
   const buffer = await fs.readFile(filePath);
+  const stat = await fs.stat(filePath);
   const ext = path.extname(filePath).toLowerCase();
   let mime =
     ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
@@ -46,6 +49,8 @@ async function fileToPayload(filePath) {
   return {
     name: path.basename(filePath),
     path: filePath,
+    size: stat.size,
+    modifiedAt: stat.mtime.toISOString(),
     dataUrl: `data:${mime};base64,${output.toString("base64")}`
   };
 }
@@ -83,17 +88,6 @@ ipcMain.handle("select-image-folder", async () => {
   if (result.canceled || result.filePaths.length === 0) return [];
   const files = await walkImages(result.filePaths[0]);
   return Promise.all(files.map(fileToPayload));
-});
-
-ipcMain.handle("select-logo", async () => {
-  const result = await dialog.showOpenDialog({
-    title: "选择 Logo",
-    properties: ["openFile"],
-    filters: [{ name: "Logo", extensions: ["png", "svg", "jpg", "jpeg", "webp"] }]
-  });
-
-  if (result.canceled || result.filePaths.length === 0) return null;
-  return fileToPayload(result.filePaths[0]);
 });
 
 ipcMain.handle("choose-output-directory", async () => {

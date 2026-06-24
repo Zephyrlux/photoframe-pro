@@ -32,7 +32,6 @@ interface AppStore {
   photos: PhotoItem[];
   selectedId?: string;
   settings: FrameSettings;
-  savedTemplates: FrameTemplate[];
   exportProgress: ExportProgress;
   addPhotos: (photos: PhotoItem[]) => void;
   clearPhotos: () => void;
@@ -41,9 +40,6 @@ interface AppStore {
   setAllPhotoStatus: (status: PhotoStatus) => void;
   updateSettings: (patch: DeepPartial<FrameSettings>) => void;
   applyTemplate: (template: FrameTemplate) => void;
-  saveCurrentTemplate: (name: string) => void;
-  deleteTemplate: (id: string) => void;
-  importTemplates: (templates: FrameTemplate[]) => void;
   setExportProgress: (progress: Partial<ExportProgress>) => void;
 }
 
@@ -54,13 +50,16 @@ const initialProgress: ExportProgress = {
   message: ""
 };
 
+type PersistedAppState = {
+  settings: FrameSettings;
+};
+
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
       photos: [],
       selectedId: undefined,
       settings: defaultSettings,
-      savedTemplates: [],
       exportProgress: initialProgress,
       addPhotos: (incoming) =>
         set((state) => {
@@ -95,29 +94,6 @@ export const useAppStore = create<AppStore>()(
             template.settings as unknown as DeepPartial<Record<string, unknown>>
           ) as unknown as FrameSettings
         }),
-      saveCurrentTemplate: (name) =>
-        set((state) => {
-          const trimmed = name.trim();
-          if (!trimmed) return state;
-          const template: FrameTemplate = {
-            id: `template-${Date.now()}`,
-            name: trimmed,
-            description: "用户保存的当前参数组合。",
-            settings: state.settings
-          };
-          return { savedTemplates: [...state.savedTemplates, template] };
-        }),
-      deleteTemplate: (id) =>
-        set((state) => ({
-          savedTemplates: state.savedTemplates.filter((template) => template.id !== id)
-        })),
-      importTemplates: (templates) =>
-        set((state) => ({
-          savedTemplates: [
-            ...state.savedTemplates,
-            ...templates.filter((template) => template.id && template.name && template.settings)
-          ]
-        })),
       setExportProgress: (progress) =>
         set((state) => ({
           exportProgress: { ...state.exportProgress, ...progress }
@@ -125,15 +101,75 @@ export const useAppStore = create<AppStore>()(
     }),
     {
       name: "photoframe-pro-settings",
+      version: 4,
+      migrate: (persisted, version) => {
+        const saved = persisted as Partial<PersistedAppState> | undefined;
+        const settings = mergeDeep(
+          defaultSettings as unknown as Record<string, unknown>,
+          (saved?.settings ?? {}) as unknown as DeepPartial<Record<string, unknown>>
+        ) as unknown as FrameSettings;
+
+        if (version < 2) {
+          settings.layout = settings.layout ?? "blur-poster";
+          settings.exif = {
+            ...settings.exif,
+            textColor: "#F5F7FA",
+            dividerColor: "rgba(255,255,255,.26)"
+          };
+        }
+
+        if (version < 3) {
+          settings.logo = { ...settings.logo, enabled: true };
+          if (settings.layout === "blur-poster") {
+            settings.exif = {
+              ...settings.exif,
+              textColor: "#F5F7FA",
+              dividerColor: "rgba(255,255,255,.26)"
+            };
+          }
+        }
+
+        if (version < 4 && settings.layout === "blur-poster") {
+          settings.background = { ...settings.background, mode: "blur", blur: 48, brightness: -14, opacity: 100 };
+          settings.subject = {
+            ...settings.subject,
+            borderEnabled: false,
+            borderWidth: 0,
+            radius: 18,
+            shadowEnabled: true,
+            shadowStrength: 46,
+            shadowBlur: 36
+          };
+          settings.logo = { ...settings.logo, enabled: false, size: 90, opacity: 92 };
+          settings.exif = {
+            ...settings.exif,
+            textColor: "#F5F7FA",
+            dividerColor: "rgba(255,255,255,.26)"
+          };
+        }
+
+        return {
+          settings
+        };
+      },
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<PersistedAppState> | undefined;
+        return {
+          ...current,
+          settings: mergeDeep(
+            defaultSettings as unknown as Record<string, unknown>,
+            (saved?.settings ?? {}) as unknown as DeepPartial<Record<string, unknown>>
+          ) as unknown as FrameSettings,
+          photos: current.photos,
+          selectedId: current.selectedId,
+          exportProgress: current.exportProgress
+        };
+      },
       partialize: (state) => ({
-        settings: state.settings,
-        savedTemplates: state.savedTemplates
+        settings: state.settings
       })
     }
   )
 );
 
-export const allTemplates = (savedTemplates: FrameTemplate[]) => [
-  ...builtInTemplates,
-  ...savedTemplates
-];
+export const allTemplates = () => builtInTemplates;
