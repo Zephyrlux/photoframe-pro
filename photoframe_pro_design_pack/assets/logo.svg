@@ -1,0 +1,23 @@
+<svg width="720" height="160" viewBox="0 0 720 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g1" x1="26" y1="20" x2="138" y2="144" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8A3D"/>
+      <stop offset="0.45" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#1677FF"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="58" y1="48" x2="118" y2="110" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#BFD7FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="28" width="112" height="100" rx="26" fill="url(#g1)"/>
+  <rect x="48" y="48" width="72" height="60" rx="17" fill="#10131A" opacity="0.9"/>
+  <circle cx="84" cy="78" r="24" fill="url(#g2)"/>
+  <circle cx="84" cy="78" r="15" fill="#1677FF"/>
+  <circle cx="84" cy="78" r="8" fill="#0F1115"/>
+  <circle cx="110" cy="58" r="6" fill="#35C759"/>
+  <rect x="56" y="38" width="34" height="16" rx="8" fill="#F5F7FA" opacity="0.96"/>
+  <text x="166" y="91" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="46" font-weight="700" fill="#F5F7FA">PhotoFrame</text>
+  <text x="458" y="91" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="46" font-weight="700" fill="#1677FF">Pro</text>
+  <text x="170" y="122" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" font-weight="400" fill="#A8B0BD">Batch photo framing, EXIF, watermark and export</text>
+</svg>

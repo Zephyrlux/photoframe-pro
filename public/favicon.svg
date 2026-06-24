@@ -1,0 +1,21 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g1" x1="42" y1="32" x2="218" y2="224" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8A3D"/>
+      <stop offset="0.45" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#1677FF"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="79" y1="78" x2="178" y2="178" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#BFD7FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="32" y="40" width="192" height="168" rx="42" fill="url(#g1)"/>
+  <rect x="70" y="74" width="116" height="98" rx="28" fill="#10131A" opacity="0.88"/>
+  <circle cx="128" cy="123" r="38" fill="url(#g2)"/>
+  <circle cx="128" cy="123" r="24" fill="#1677FF"/>
+  <circle cx="128" cy="123" r="13" fill="#0F1115"/>
+  <circle cx="169" cy="93" r="9" fill="#35C759"/>
+  <rect x="82" y="56" width="52" height="26" rx="13" fill="#F5F7FA" opacity="0.96"/>
+  <path d="M60 189C90 171 116 172 139 189C162 206 191 206 216 188V208C216 219.046 207.046 228 196 228H60V189Z" fill="#FFFFFF" opacity="0.16"/>
+</svg>
