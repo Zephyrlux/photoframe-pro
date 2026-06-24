@@ -1,4 +1,16 @@
-# PhotoFrame Pro
+<p align="center">
+  <img src="./assets/readme-hero.png" alt="PhotoFrame Pro 专业的图片批量处理工具" width="100%" />
+</p>
+
+<h1 align="center">PhotoFrame Pro</h1>
+
+<p align="center">
+  面向摄影师、内容创作者和电商运营的跨平台桌面图片批处理工具。
+</p>
+
+<p align="center">
+  <strong>macOS / Windows</strong> · <strong>Electron</strong> · <strong>TypeScript</strong> · <strong>本地图片处理</strong>
+</p>
 
 PhotoFrame Pro 是一款面向摄影师、内容创作者和电商运营的桌面图片批处理工具。它可以把原图快速处理成统一比例的发布图：生成背景、居中主体、添加边框、叠加 Logo、显示 EXIF 信息，并批量导出成 JPG、PNG 或 WEBP。
 
