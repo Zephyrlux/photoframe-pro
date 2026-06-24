@@ -21,12 +21,7 @@ import { ratios } from "./config";
 import { allTemplates, useAppStore } from "./store";
 import type { DeepPartial, FrameSettings, FrameTemplate, LogoPosition, PhotoItem } from "./types";
 import type { NativeImagePayload } from "./vite-env";
-import {
-  createDemoPhotos,
-  createPhotoFromFile,
-  createPhotoFromNative,
-  readFileAsDataUrl
-} from "./lib/image";
+import { createPhotoFromFile, createPhotoFromNative, readFileAsDataUrl } from "./lib/image";
 import { getMimeType, getOutputSize, makeExportName, renderPhotoToCanvas } from "./lib/renderer";
 
 const logoPositions: Array<{ id: LogoPosition; label: string }> = [
@@ -194,15 +189,23 @@ function LeftPanel({
         </button>
       </div>
 
-      <div className="photo-list">
-        {photos.map((photo) => (
-          <PhotoCard
-            key={photo.id}
-            photo={photo}
-            selected={photo.id === selectedId}
-            onClick={() => selectPhoto(photo.id)}
-          />
-        ))}
+      <div className={photos.length > 0 ? "photo-list" : "photo-list empty"}>
+        {photos.length > 0 ? (
+          photos.map((photo) => (
+            <PhotoCard
+              key={photo.id}
+              photo={photo}
+              selected={photo.id === selectedId}
+              onClick={() => selectPhoto(photo.id)}
+            />
+          ))
+        ) : (
+          <button className="empty-import-card" type="button" onClick={onImportImages}>
+            <ImagePlus size={24} />
+            <strong>导入本地图片</strong>
+            <span>支持 JPG、PNG、WEBP、TIFF</span>
+          </button>
+        )}
       </div>
 
       <div className="list-footer">
@@ -221,7 +224,15 @@ function LeftPanel({
   );
 }
 
-function PreviewPanel({ selectedPhoto }: { selectedPhoto?: PhotoItem }) {
+function PreviewPanel({
+  selectedPhoto,
+  onImportImages,
+  onImportFolder
+}: {
+  selectedPhoto?: PhotoItem;
+  onImportImages: () => void;
+  onImportFolder: () => void;
+}) {
   const settings = useAppStore((state) => state.settings);
   const photos = useAppStore((state) => state.photos);
   const selectPhoto = useAppStore((state) => state.selectPhoto);
@@ -280,7 +291,19 @@ function PreviewPanel({ selectedPhoto }: { selectedPhoto?: PhotoItem }) {
         {previewUrl ? (
           <img className={busy ? "preview-image refreshing" : "preview-image"} src={previewUrl} alt="当前输出预览" />
         ) : (
-          <div className="empty-preview">拖入图片后生成预览</div>
+          <div className="empty-preview">
+            <ZoomIn size={30} />
+            <strong>拖入真实图片开始预览</strong>
+            <span>PhotoFrame Pro 会在本地生成预览，不上传文件。</span>
+            <div>
+              <button className="primary" type="button" onClick={onImportImages}>
+                导入图片
+              </button>
+              <button type="button" onClick={onImportFolder}>
+                导入文件夹
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
@@ -297,9 +320,11 @@ function PreviewPanel({ selectedPhoto }: { selectedPhoto?: PhotoItem }) {
               <img src={photo.dataUrl} alt={photo.name} />
             </button>
           ))}
-          <button className="thumb-next" type="button" aria-label="更多预览">
-            <ChevronRight size={20} />
-          </button>
+          {photos.length > 0 && (
+            <button className="thumb-next" type="button" aria-label="更多预览">
+              <ChevronRight size={20} />
+            </button>
+          )}
         </div>
       </div>
     </main>
@@ -793,7 +818,6 @@ export default function App() {
   const folderInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const templateInputRef = useRef<HTMLInputElement>(null);
-  const seededRef = useRef(false);
   const [dragging, setDragging] = useState(false);
 
   const photos = useAppStore((state) => state.photos);
@@ -806,13 +830,6 @@ export default function App() {
   const setExportProgress = useAppStore((state) => state.setExportProgress);
   const setPhotoStatus = useAppStore((state) => state.setPhotoStatus);
   const setAllPhotoStatus = useAppStore((state) => state.setAllPhotoStatus);
-
-  useEffect(() => {
-    if (!seededRef.current && photos.length === 0) {
-      seededRef.current = true;
-      addPhotos(createDemoPhotos());
-    }
-  }, [addPhotos, photos.length]);
 
   const importFiles = async (files: File[]) => {
     const accepted = files.filter((file) => file.type.startsWith("image/") || /\.(jpe?g|png|webp|tiff?)$/i.test(file.name));
@@ -942,7 +959,11 @@ export default function App() {
           onImportImages={handleImportImages}
           onImportFolder={handleImportFolder}
         />
-        <PreviewPanel selectedPhoto={selectedPhoto} />
+        <PreviewPanel
+          selectedPhoto={selectedPhoto}
+          onImportImages={handleImportImages}
+          onImportFolder={handleImportFolder}
+        />
         <SettingsPanel
           selectedPhoto={selectedPhoto}
           onSelectLogo={handleLogo}
